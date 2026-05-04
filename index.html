@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Orion Journal</title>
+</head>
+<body>
+
+<h1>Orion Journal 🚀</h1>
+
+<h2>Trades</h2>
+<ul id="trades"></ul>
+
+<script>
+fetch("/trades")
+  .then(res => res.json())
+  .then(data => {
+    const list = document.getElementById("trades");
+
+    data.forEach(trade => {
+      const li = document.createElement("li");
+      li.innerText = trade.activo + " - " + trade.direccion + " - " + trade.temporalidad;
+      list.appendChild(li);
+    });
+  });
+</script>
+
+</body>
+</html>
