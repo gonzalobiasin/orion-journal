@@ -2,25 +2,117 @@
 <html>
 <head>
   <title>Orion Journal</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #22c55e;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .grid {
+      display: flex;
+      gap: 20px;
+    }
+
+    .box {
+      flex: 1;
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .green { color: #22c55e; }
+    .red { color: #ef4444; }
+  </style>
 </head>
+
 <body>
 
 <h1>Orion Journal 🚀</h1>
 
-<h2>Trades</h2>
-<ul id="trades"></ul>
+<div class="grid">
+  <div class="box">
+    <h3>Capital</h3>
+    <p id="capital">-</p>
+  </div>
+
+  <div class="box">
+    <h3>Winrate</h3>
+    <p id="winrate">-</p>
+  </div>
+
+  <div class="box">
+    <h3>Trades</h3>
+    <p id="total">-</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Historial</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Activo</th>
+        <th>Dir</th>
+        <th>TF</th>
+        <th>Entry</th>
+        <th>TP</th>
+        <th>SL</th>
+      </tr>
+    </thead>
+    <tbody id="tabla"></tbody>
+  </table>
+</div>
 
 <script>
 fetch("/trades")
   .then(res => res.json())
   .then(data => {
-    const list = document.getElementById("trades");
 
-    data.forEach(trade => {
-      const li = document.createElement("li");
-      li.innerText = trade.activo + " - " + trade.direccion + " - " + trade.temporalidad;
-      list.appendChild(li);
+    const tabla = document.getElementById("tabla");
+
+    let total = data.length;
+
+    data.forEach(t => {
+      const row = document.createElement("tr");
+
+      row.innerHTML = `
+        <td>${t.activo}</td>
+        <td>${t.direccion}</td>
+        <td>${t.temporalidad}</td>
+        <td>${t.entry}</td>
+        <td>${t.tp}</td>
+        <td>${t.sl}</td>
+      `;
+
+      tabla.appendChild(row);
     });
+
+    document.getElementById("total").innerText = total;
+    document.getElementById("capital").innerText = "$1000"; // placeholder
+    document.getElementById("winrate").innerText = "calculando...";
   });
 </script>
 
