@@ -1,49 +1,36 @@
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from datetime import datetime
-import os
 import psycopg2
+import os
 
 app = FastAPI()
 
+# -------- CONEXIÓN A LA BASE DE DATOS --------
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-conn = None
-cursor = None
+conn = psycopg2.connect(DATABASE_URL)
+cursor = conn.cursor()
 
-# ============================
-# INICIALIZAR DB SEGURO
-# ============================
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS trades (
+    id SERIAL PRIMARY KEY,
+    activo TEXT,
+    tipo TEXT,
+    direccion TEXT,
+    temporalidad TEXT,
+    entry FLOAT,
+    tp FLOAT,
+    sl FLOAT,
+    capital FLOAT,
+    riesgo FLOAT,
+    apalancamiento FLOAT
+)
+""")
+conn.commit()
 
-try:
-    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS trades (
-        id SERIAL PRIMARY KEY,
-        activo TEXT,
-        tipo TEXT,
-        direccion TEXT,
-        temporalidad TEXT,
-        entry FLOAT,
-        tp FLOAT,
-        sl FLOAT,
-        capital FLOAT,
-        riesgo FLOAT,
-        apalancamiento FLOAT,
-        fecha TIMESTAMP
-    )
-    """)
-    conn.commit()
-
-except Exception as e:
-    print("Error conectando a DB:", e)
-
-# ============================
-# MODELO
-# ============================
-
+# -------- MODELO --------
 class Trade(BaseModel):
     activo: str
     tipo: str
@@ -56,22 +43,17 @@ class Trade(BaseModel):
     riesgo: float
     apalancamiento: float
 
-# ============================
-# ENDPOINTS
-# ============================
-
+# -------- RUTA FRONTEND --------
 @app.get("/")
 def home():
-    return {"msg": "Orion Journal funcionando 🚀 con DB"}
+    return FileResponse("index.html")
 
+# -------- GUARDAR TRADE --------
 @app.post("/trade")
 def crear_trade(trade: Trade):
-    if cursor is None:
-        return {"error": "DB no conectada"}
-
     cursor.execute("""
-    INSERT INTO trades (activo, tipo, direccion, temporalidad, entry, tp, sl, capital, riesgo, apalancamiento, fecha)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO trades (activo, tipo, direccion, temporalidad, entry, tp, sl, capital, riesgo, apalancamiento)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (
         trade.activo,
         trade.tipo,
@@ -82,35 +64,31 @@ def crear_trade(trade: Trade):
         trade.sl,
         trade.capital,
         trade.riesgo,
-        trade.apalancamiento,
-        datetime.utcnow()
+        trade.apalancamiento
     ))
     conn.commit()
+    return {"msg": "Trade guardado"}
 
-    return {"msg": "Trade guardado en DB"}
-
+# -------- VER TRADES --------
 @app.get("/trades")
 def obtener_trades():
-    if cursor is None:
-        return {"error": "DB no conectada"}
-
-    cursor.execute("SELECT * FROM trades ORDER BY id DESC")
+    cursor.execute("SELECT * FROM trades")
     rows = cursor.fetchall()
 
-    return [
-        {
-            "id": r[0],
-            "activo": r[1],
-            "tipo": r[2],
-            "direccion": r[3],
-            "temporalidad": r[4],
-            "entry": r[5],
-            "tp": r[6],
-            "sl": r[7],
-            "capital": r[8],
-            "riesgo": r[9],
-            "apalancamiento": r[10],
-            "fecha": str(r[11])
-        }
-        for r in rows
-    ]
+    trades = []
+    for row in rows:
+        trades.append({
+            "id": row[0],
+            "activo": row[1],
+            "tipo": row[2],
+            "direccion": row[3],
+            "temporalidad": row[4],
+            "entry": row[5],
+            "tp": row[6],
+            "sl": row[7],
+            "capital": row[8],
+            "riesgo": row[9],
+            "apalancamiento": row[10]
+        })
+
+    return trades
