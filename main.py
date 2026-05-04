@@ -6,33 +6,39 @@ import psycopg2
 
 app = FastAPI()
 
-# ============================
-# CONEXIÓN A LA DB
-# ============================
-
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-cursor = conn.cursor()
+conn = None
+cursor = None
 
-# Crear tabla si no existe
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS trades (
-    id SERIAL PRIMARY KEY,
-    activo TEXT,
-    tipo TEXT,
-    direccion TEXT,
-    temporalidad TEXT,
-    entry FLOAT,
-    tp FLOAT,
-    sl FLOAT,
-    capital FLOAT,
-    riesgo FLOAT,
-    apalancamiento FLOAT,
-    fecha TIMESTAMP
-)
-""")
-conn.commit()
+# ============================
+# INICIALIZAR DB SEGURO
+# ============================
+
+try:
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS trades (
+        id SERIAL PRIMARY KEY,
+        activo TEXT,
+        tipo TEXT,
+        direccion TEXT,
+        temporalidad TEXT,
+        entry FLOAT,
+        tp FLOAT,
+        sl FLOAT,
+        capital FLOAT,
+        riesgo FLOAT,
+        apalancamiento FLOAT,
+        fecha TIMESTAMP
+    )
+    """)
+    conn.commit()
+
+except Exception as e:
+    print("Error conectando a DB:", e)
 
 # ============================
 # MODELO
@@ -60,6 +66,9 @@ def home():
 
 @app.post("/trade")
 def crear_trade(trade: Trade):
+    if cursor is None:
+        return {"error": "DB no conectada"}
+
     cursor.execute("""
     INSERT INTO trades (activo, tipo, direccion, temporalidad, entry, tp, sl, capital, riesgo, apalancamiento, fecha)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -82,24 +91,26 @@ def crear_trade(trade: Trade):
 
 @app.get("/trades")
 def obtener_trades():
+    if cursor is None:
+        return {"error": "DB no conectada"}
+
     cursor.execute("SELECT * FROM trades ORDER BY id DESC")
     rows = cursor.fetchall()
 
-    resultado = []
-    for row in rows:
-        resultado.append({
-            "id": row[0],
-            "activo": row[1],
-            "tipo": row[2],
-            "direccion": row[3],
-            "temporalidad": row[4],
-            "entry": row[5],
-            "tp": row[6],
-            "sl": row[7],
-            "capital": row[8],
-            "riesgo": row[9],
-            "apalancamiento": row[10],
-            "fecha": str(row[11])
-        })
-
-    return resultado
+    return [
+        {
+            "id": r[0],
+            "activo": r[1],
+            "tipo": r[2],
+            "direccion": r[3],
+            "temporalidad": r[4],
+            "entry": r[5],
+            "tp": r[6],
+            "sl": r[7],
+            "capital": r[8],
+            "riesgo": r[9],
+            "apalancamiento": r[10],
+            "fecha": str(r[11])
+        }
+        for r in rows
+    ]
