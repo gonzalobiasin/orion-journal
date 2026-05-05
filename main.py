@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
@@ -6,13 +7,26 @@ import os
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"sslmode": "require"}
+)
 
+SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
 app = FastAPI()
 
+# ======================
+# CORS (CLAVE)
+# ======================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ======================
 # MODELOS
@@ -38,7 +52,6 @@ class Trade(Base):
 
 Base.metadata.create_all(bind=engine)
 
-
 # ======================
 # SCHEMAS
 # ======================
@@ -61,7 +74,7 @@ class TradeCreate(BaseModel):
 
 
 # ======================
-# DB DEPENDENCY
+# DB
 # ======================
 
 def get_db():
@@ -70,7 +83,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
 
 # ======================
 # ENDPOINTS
@@ -81,7 +93,6 @@ def home():
     return {"msg": "Orion Journal funcionando 🚀"}
 
 
-# REGISTRO
 @app.post("/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user.email).first()
@@ -97,7 +108,6 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     return {"msg": "Usuario creado", "user_id": new_user.id}
 
 
-# LOGIN
 @app.post("/login")
 def login(data: LoginData, db: Session = Depends(get_db)):
     user = db.query(User).filter(
@@ -111,7 +121,6 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     return {"msg": "Login correcto", "user_id": user.id}
 
 
-# CREAR TRADE
 @app.post("/trades")
 def create_trade(trade: TradeCreate, db: Session = Depends(get_db)):
     new_trade = Trade(
@@ -128,9 +137,7 @@ def create_trade(trade: TradeCreate, db: Session = Depends(get_db)):
     return {"msg": "Trade guardado"}
 
 
-# LISTAR TRADES POR USUARIO
 @app.get("/trades/{user_id}")
 def get_trades(user_id: int, db: Session = Depends(get_db)):
     trades = db.query(Trade).filter(Trade.user_id == user_id).all()
-
     return trades
